@@ -52,6 +52,25 @@ getAnnMatrix = function(ar, ss = 12, sar = 2, time_series){
   
 }
 
+annMLPModel = function(trainingData){
+  trainingData = na.omit(trainingData)
+  mlpModel = neuralnet(t_0 ~ .,
+                       data = trainingData,
+                       learningrate = 0.01,
+                       algorithm = "rprop+",
+                       act.fct = 'logistic',
+                       hidden = c(10),
+                       rep = 1,
+  )
+  return(mlpModel)
+}
+
+oneStepANN = function(model, testData){
+  testData = na.omit(testData)
+  oneStepANN = compute(model, testData)
+  return(oneStepANN)
+}
+
 # Cria funcao fitness - GA
 fitnessGA = function(ar, ss, sar, nh1, nh2, serie_temporal = normalized.data$training_set){
   #time_series = normalized.data$training_set; ar = 2.7; sar = 1; ss = 15.7

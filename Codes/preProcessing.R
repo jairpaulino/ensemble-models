@@ -1,8 +1,8 @@
-# Normalização de dados
-normalize = function(array, x, y){
+# Normalize functions
+normalize = function(array, x, y, max, min){
   #Normalize to [0, 1]
-  m = min(array) 
-  range = max(array) - m
+  m = min
+  range = max - m
   norm1 = (array - m) / range
   
   #Then scale to [x,y]

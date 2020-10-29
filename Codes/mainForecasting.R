@@ -11,25 +11,70 @@ source("Codes/mmFunction.R")
 source("Codes/annFunction.R")
 source("Codes/PerformanceMetrics.R")
 source("Codes/optimalANN.R")
+source("Codes/preProcessing.R")
+source("Codes/otherModels.R")
 
 # Reading data
 DATA_LABELS = c("FM0918") 
 data = read.csv("DATA/FM0918.csv", sep=";")
 length(data$target); summary(data$target); plot.ts(data$target)
 
-# Step 1 - Data preprocessing
+# Step 1 - Data preprocessing ####
+# Creating training and test sets
+perc = 0.7
+trainingSet = data$target[1:round(perc*length(data$target))]
+testSet = data$target[(round(perc*length(data$target))+1):length(data$target)]
 
+# Normalizing training and test sets
+trainingSetNorm = normalize(trainingSet, 0.2, 0.8, 
+                            max(trainingSet), min(trainingSet))
 
+testSetNorm = normalize(testSet, 0.2, 0.8, 
+                            max(trainingSet), min(trainingSet))
 
+#Step 2 - Modelling ANN/MLP ####
 # Creating ANN matrix
 # Get ANN_1 (ar = 7 - ss = 0)
-ANN_1 = getAnnMatrix(ar = 7, ss = 0, sar = 2, data$target); head(ANN_1, 3)
-
+ANN_1_Train = getAnnMatrix(ar = 7, ss = 0, sar = 2, trainingSetNorm); head(ANN_1_Train, 3)
+ANN_1_Test = getAnnMatrix(ar = 7, ss = 0, sar = 2, testSetNorm); head(ANN_1_Test, 3)
 # Get ANN_2 (ar = 14 - ss = 0)
-ANN_2 = getAnnMatrix(ar = 14, ss = 0, sar = 2, data$target); head(ANN_2, 3)
+ANN_2_Train = getAnnMatrix(ar = 14, ss = 0, sar = 2, trainingSetNorm); head(ANN_2, 3)
+ANN_2_Test = getAnnMatrix(ar = 14, ss = 0, sar = 2, testSetNorm); head(ANN_2_Test, 3)
 
 # Get ANN_3 (ar = 21 - ss = 0)
-ANN_3 = getAnnMatrix(ar = 21, ss = 0, sar = 2, data$target); head(ANN_3, 3)
+ANN_3_Train = getAnnMatrix(ar = 21, ss = 0, sar = 2, trainingSetNorm); head(ANN_3, 3)
+ANN_3_Test = getAnnMatrix(ar = 21, ss = 0, sar = 2, testSetNorm); head(ANN_3_Test, 3)
+
+# Creating ANN Models
+ANN_1_Model = annMLPModel(ANN_1)
+ANN_1_oneStep = oneStepANN(ANN_1_Model, ANN_1_Test)
+ANN_2_Model = annMLPModel(ANN_2)
+ANN_2_oneStep = oneStepANN(ANN_2_Model, ANN_2_Test)
+ANN_3_Model = annMLPModel(ANN_3)
+ANN_3_oneStep = oneStepANN(ANN_3_Model, ANN_3_Test)
+
+resultMatrixTest = data.frame(matrix(ncol = 7, nrow = length(testSet)))
+names(resultMatrixTest) = c("Obs", "MLP_1", "MLP_2", "MLP_3", "ARIMA", "ETS", "NNAR")
+resultMatrixTest$Obs = testSet
+resultMatrixTest$MLP_1 = ANN_1_oneStep
+
+plot.ts(ANN_3_Test[[1]])
+lines(ANN_1_oneStep$net.result, col = 2)
+lines(ANN_2_oneStep$net.result, col = 3)
+lines(ANN_3_oneStep$net.result, col = 4)
+
+
+# Step 3 - Modelling ARIMA, ETS and NNAR ####
+# ARIMA model
+arimaModel = getOptimalARIMA(trainingSetNorm)
+arimaForecast = getARIMAForecasts(testSetNorm, arimaModel)
+# ETS model
+etsModel = getOptimalETS(trainingSetNorm)
+etsForecast = getETSForecasts(testSetNorm, etsModel)
+# NNAR model
+nnarModel = getOptimalNNAR(trainingSetNorm)
+nnarForecast = getNNARForecasts(testSetNorm, nnarModel)
+
 
 
 # create tables
@@ -44,6 +89,8 @@ dataTable = as.data.frame(matrix(nrow = length(data$target), ncol=1))
 names(dataTable) = c("Target")
 dataTable$Target = data$target 
 #View(dataTable) 
+
+
 
 sink(file = paste(getwd(), "/Results/", DATA_LABELS, "_prints.txt", sep=""))
 print(paste("> **************", DATA_LABELS, "**************"))
