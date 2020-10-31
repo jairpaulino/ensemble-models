@@ -1,5 +1,5 @@
 # Criar matrix a partir da ST
-getAnnMatrix = function(ar, ss = 12, sar = 2, time_series){
+getAnnMatrix = function(ar, ss, sar, time_series){
   
   #time_series = 1:30; ar = 3; ss = 12; sar = 2
   matriz.sliding.window.ar = as.data.frame(matrix(nrow = length(time_series), ncol = (ar+1)))
@@ -52,38 +52,43 @@ getAnnMatrix = function(ar, ss = 12, sar = 2, time_series){
   
 }
 
-annMLPModel = function(trainingData){
+annMLPModel = function(trainingData, nhl){
   trainingData = na.omit(trainingData)
+  set.seed(123)
   mlpModel = neuralnet(t_0 ~ .,
                        data = trainingData,
                        learningrate = 0.01,
-                       algorithm = "rprop+",
+                       stepmax = 1e+05,
+                       algorithm = "rprop+" ,
                        act.fct = 'logistic',
-                       hidden = c(10),
-                       rep = 1,
+                       hidden = c(nhl),
+                       rep = 10,
   )
   return(mlpModel)
 }
 
 oneStepANN = function(model, testData){
   testData = na.omit(testData)
-  oneStepANN = compute(model, testData)
+  oneStepANN = compute(model, testData, rep = 5)
   return(oneStepANN)
 }
 
 # Cria funcao fitness - GA
-fitnessGA = function(ar, ss, sar, nh1, nh2, serie_temporal = normalized.data$training_set){
-  #time_series = normalized.data$training_set; ar = 2.7; sar = 1; ss = 15.7
+fitnessGA = function(ar, ss, sar, nh1, serie_temporal = trainingSetNorm){
+  #time_series = trainingSetNorm; ar = 2.7; sar = 1; ss = 15.7; nh1 = 5
   
-  ar = round(ar, 0); sar = round(sar, 0); ss = round(ss, 0)
-  nh1 = round(nh1, 0); nh2 = round(nh2, 0)
-  matriz = getAnnMatrix(normalized.data$training_set, ar = ar, ss = ss, sar = sar)
+  ar = floor(ar);   ss = floor(ss)
+  sar = floor(sar); nh1 = floor(nh1) #nh2 = floor(nh2)
+  
+  matriz = getAnnMatrix(trainingSetNorm, ar = sar, ss = ss, sar = sar)
+  matriz = na.omit(matriz)
   #View(matriz)
   
   set.seed(123)
   model_mlp = neuralnet(t_0 ~ .,
                         data = matriz,
-                        learningrate = 0.05,
+                        learningrate = 0.01,
+                        act.fct = "logistic",
                         algorithm = "rprop+",
                         hidden = c(nh1),#, nh2),
                         rep = 5)
@@ -97,47 +102,52 @@ fitnessGA = function(ar, ss, sar, nh1, nh2, serie_temporal = normalized.data$tra
   matriz.previsao$obs = model_mlp$data[[1]]
   matriz.previsao$forecast = model_mlp$net.result[[1]]
   matriz.previsao = na.omit(matriz.previsao)
-  minTheil = 1/(1-getTheil(matriz.previsao$obs, matriz.previsao$forecast))
-  return(minTheil)  
+  minMSE = 1/(1-getMSE(matriz.previsao$obs, matriz.previsao$forecast))
+  return(minMSE)  
 }
 
 # Calcula os parametros - GA
 getOptGAParameters = function(){
-  #time_series = train.set; C = 0.5; n = 5.3; w = 6
+  #time_series = train.set; ar, ss, sar, nh1
+  
+  popSize = 20
   
   # c() - ar, ss, sar
-  lower = c(1, 12, 01, 01, 15)
-  upper = c(05, 20, 05, 01, 15)
-  GA <- ga(type = "real-valued", 
-           fitness =  function(x) fitnessGA (x[1], x[2], x[3], x[4], x[5]),
+  lower = c(01, 10, 01, 01)
+  upper = c(06, 20, 05, 20)
+  parGA <- ga(type = "real-valued", 
+           fitness =  function(x) fitnessGA (x[1], x[2], x[3], x[4]),
            lower = lower, upper = upper, 
-           pcrossover = 0.95,
-           pmutation = 0.2,
-           popSize = 10,
+           pcrossover = 0.85,
+           pmutation = 0.15,
+           popSize = 20,
+           elitism = base::max(1, round(popSize*0.5)),
            maxiter = 1000,
-           parallel = T,
-           run = 10,
-           seed = 22)
+           parallel = F,
+           run = 30,
+           seed = 123)
   
-  result = list()
-  GA
-  result$ar
-  ar = round(ar, 0); sar = round(sar, 0); ss = round(ss, 0)
-  nh1 = round(nh1, 0); nh2 = round(nh2, 0)
+  #result = list()
   
+  #result$ar
+  tamanho = length(summary(parGA)$solution)
+  ar = round(summary(parGA)$solution[1], 0)
+  ss = round(summary(parGA)$solution[2], 0)
+  #ss = round(summary(parGA)$solution[tamanho,][2], 0)
+  sar = round(summary(parGA)$solution[3], 0)
+  nh1 = round(summary(parGA)$solution[4], 0)
+
+  plot(parGA)
   
-  plot(GA)
-  C = summary(GA)$solution[1,][1]; n = round(summary(GA)$solution[1,][2]) 
-  w = round(summary(GA)$solution[1,][3]); pos_type = round(summary(GA)$solution[1,][4]) 
-  # result = c(C, n, w, pos_type)
+  result = c(ar, nh1, ss, nh1)
   return(result)
 }
 
-getMLP = function(train, test){
+getMLP = function(trainingSetNorm, testSet){
   #train = normalized.data$training_set; head(train)
   #test = normalized.data$test_set; View(test)
-  MLPTrain_df =  getAnnMatrix(ar = 11, time_series = train)
-  MLPTest_df =  getAnnMatrix(ar = 11, time_series = test)
+  MLPTrain_df =  getAnnMatrix(ar = 11, time_series = trainingSetNorm)
+  MLPTest_df =  getAnnMatrix(ar = 11, time_series = testSetNorm)
   
   #View(MLP_df)
   
@@ -164,3 +174,4 @@ getMLP = function(train, test){
   result$proc_time_test = procTimeTest
   return(result)
 }
+
