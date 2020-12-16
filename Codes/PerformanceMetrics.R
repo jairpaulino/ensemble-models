@@ -4,7 +4,7 @@ calculateMetrics = function(resultsMatrix){ #resultsMatrix = resultMatrixTest
   colnames(metricsMatrix) = c('MSE', 'MAE', 'MAPE', 'ARV', 'THEIL')
   #resultsMatrixWONA = na.omit(resultsMatrix)
   
-  for (i in 1:5) { #i=4
+  for (i in 1:3) { #i=1; j=1
     for (j in 1:5) {
       if(j == 1){
         metricsMatrix[i,j] = getMSE(resultsMatrix[[i+1]], resultsMatrix$Obs)
@@ -17,9 +17,6 @@ calculateMetrics = function(resultsMatrix){ #resultsMatrix = resultMatrixTest
       }    
       if(j == 4){
         metricsMatrix[i,j] = getARV(resultsMatrix[[i+1]], resultsMatrix$Obs)
-      }
-      if(j == 5){
-        metricsMatrix[i,j] = getTheil(resultsMatrix[[i+1]], resultsMatrix$Obs)
       }
     }
   }

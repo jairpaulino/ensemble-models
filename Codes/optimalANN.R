@@ -120,7 +120,7 @@ getOptGAParameters = function(){
            lower = lower, upper = upper, 
            pcrossover = 0.85,
            pmutation = 0.15,
-           popSize = 20,
+           popSize = 30,
            elitism = base::max(1, round(popSize*0.5)),
            maxiter = 1000,
            parallel = F,
